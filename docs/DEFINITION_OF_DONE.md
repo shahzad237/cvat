@@ -1,8 +1,9 @@
 # Definition of Done
 
 Written before starting (commit `d92ff3a86`). Each line gets a number, an output or a link when it
-is ticked. A line without evidence counts as not done. The outputs below were re-run on the final
-code (commit `70aeef42d`, 2026-10-29 15:11 UTC) on the machine described in `OBJECTIVES.md`.
+is ticked. A line without evidence counts as not done. The API, socket and test outputs below were
+re-run on commit `70aeef42d` (2026-10-29 15:11 UTC), the last backend change; the page checks were
+re-done on the final UI (commit `da6b92bcd`, checked 15:41–15:43 UTC). Machine as described in `OBJECTIVES.md`.
 
 ## Floor (items 1–4)
 
@@ -23,14 +24,18 @@ code (commit `70aeef42d`, 2026-10-29 15:11 UTC) on the machine described in `OBJ
   and test `test_counts_per_label_include_labels_without_annotations` ("bird": 0).
 - [x] The page in the CVAT UI calls the endpoint and draws a bar chart of the counts.
   `/tasks/1/annotation-stats`, linked from the task's Actions menu as "Annotation counts":
-  80 horizontal bars in label colours, header "Total: 41866". Shown in the recording.
+  header "Annotation counts · COCO val2017 · Task #1", cards "Annotations 41,866",
+  "Classes with annotations 80 / 80", "Most frequent class person 29.7%", "Last updated", then
+  80 horizontal bars in label colours with the count at the end of each bar, sortable by count or
+  name. Shown in the recording.
 - [x] Empty case: a task with no annotations shows an empty-state message, not an empty chart.
-  `/tasks/2/annotation-stats` shows "This task has no annotations yet" and "Total: 0".
+  `/tasks/2/annotation-stats` shows "Empty task · Task #2" and "This task has no annotations yet",
+  with no cards and no chart.
 - [x] Error case: a failed request shows an error message with a retry button.
   `/tasks/999/annotation-stats` shows "Could not load the annotation counts", the server's message
   "No Task matches the given query." and a Retry button. With `cvat_server` stopped, a request
   shows "The server did not answer. Check that CVAT is running, then retry."; after
-  `docker start cvat_server`, Retry shows the spinner and then the chart (Total: 41866).
+  `docker start cvat_server`, Retry shows the spinner and then the chart (41,866).
 
 ## Beyond the floor
 
@@ -60,11 +65,13 @@ code (commit `70aeef42d`, 2026-10-29 15:11 UTC) on the machine described in `OBJ
   after create: pushed in 1.05s, total=41867 person=12452
   after delete: pushed in 1.15s, total=41866 person=12451
   ```
-  In the browser the header went from "Total: 41866" to "Total: 41867" with no reload.
+  In the browser the "Annotations" card went from 41,866 to 41,867 and "Last updated" from
+  8:41:52 PM to 8:41:54 PM, with no reload.
 - [x] Page recovers after the WebSocket drops (server restart) and shows fresh counts afterwards.
-  `docker stop cvat_server` → badge "Reconnecting", chart kept. Shape deleted directly in the
-  database while the server was down (no change event sent) → `docker start cvat_server` → badge
-  "Live" and "Total: 41866" without a reload, because the server sends current counts on connect.
+  `docker stop cvat_server` → badge "Reconnecting", cards and chart kept (41,867). Shape deleted
+  directly in the database while the server was down (no change event sent) →
+  `docker start cvat_server` → badge "Live", 41,866 and "Last updated 8:43:06 PM" without a
+  reload, because the server sends current counts on connect.
 - [x] Decision record written at the end of `PLAN.md`.
 
 ## Hygiene
@@ -75,10 +82,11 @@ code (commit `70aeef42d`, 2026-10-29 15:11 UTC) on the machine described in `OBJ
   `tasks-page/actions-menu-items.tsx` (+6), `webpack.config.js` (+1, dev proxy `ws: true`).
 - [x] No dead code, no commented-out blocks, no stray files (`git status` clean, diff reviewed).
   `git status --porcelain` empty. Python formatted with the repository's black 26 / isort 7,
-  `eslint` clean on the UI files, `tsc --noEmit` reports nothing for them. Setup and measurement
+  `eslint` clean on the UI files, `tsc --noEmit -p cvat-ui/tsconfig.json` exits 0 with no errors
+  (run with the dev server stopped; with both running it ran out of memory). Setup and measurement
   scripts were kept outside the repository.
 - [x] Commits are small and each message says what changed and why.
-  14 commits on `dev-test01`, plan first: `git log --oneline b36a49bd5..dev-test01`.
+  16 commits on `dev-test01`, plan first: `git log --oneline b36a49bd5..dev-test01`.
 - [x] Everything not finished is listed below with the reason.
 
 Automated tests, 7 of 7 passing:

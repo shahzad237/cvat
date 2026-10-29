@@ -79,6 +79,11 @@ less useful on a dataset where every job has the same distribution.
      anything else a short "the server did not answer" message.
   3. Retry did not visibly do anything until the response came back. It now shows the spinner.
   MO-1 was measured again on the final code, since the first fix added a query.
+- 20:25 — Reworked the page layout after looking at it as a user would: the bare chart did not
+  say which task it was or what the numbers added up to. Added the task name, summary cards
+  (total, classes used, most frequent class, last update), counts on the bars, the axis on top,
+  and a sort control. Only the presentation changed; the page checks in the Definition of Done
+  were done again on the new layout.
 
 ## Decision record
 
