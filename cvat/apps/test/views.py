@@ -31,7 +31,7 @@ class AnnotationStatsViewSet(viewsets.GenericViewSet):
                 "group_by",
                 enum=[GROUP_BY_KIND],
                 required=False,
-                description="Also split each count by shape type, track and tag",
+                description="Also split each count by shape type, track, tag and interval",
             ),
         ],
         responses=AnnotationStatsSerializer,

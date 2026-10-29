@@ -13,7 +13,7 @@ class LabelCountSerializer(serializers.Serializer):
     by_kind = serializers.DictField(
         child=serializers.IntegerField(),
         required=False,
-        help_text="Counts per shape type, 'track' and 'tag'. Only present with group_by=kind",
+        help_text="Counts per shape type, 'track', 'tag' and 'interval'. Only present with group_by=kind",
     )
 
 

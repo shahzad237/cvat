@@ -6,17 +6,25 @@ from collections import Counter
 
 from django.db.models import Count
 
-from cvat.apps.engine.models import JobType, LabeledImage, LabeledShape, LabeledTrack, Task
+from cvat.apps.engine.models import (
+    JobType,
+    LabeledImage,
+    LabeledInterval,
+    LabeledShape,
+    LabeledTrack,
+    Task,
+)
 
 TRACK = "track"
 TAG = "tag"
+INTERVAL = "interval"
 
 
 def count_annotations_per_label(task: Task) -> list[dict]:
     """
     Counts the annotations of a task per label, split by kind: the shape type for shapes,
-    "track" for tracks and "tag" for tags. The counting is done by GROUP BY queries,
-    so no annotation rows are loaded into Python.
+    "track" for tracks, "tag" for tags and "interval" for intervals (audio and time ranges).
+    The counting is done by GROUP BY queries, so no annotation rows are loaded into Python.
 
     Only top-level objects are counted: skeleton points belong to their skeleton.
     Only annotation jobs are counted: ground truth and consensus replica jobs
@@ -37,6 +45,7 @@ def count_annotations_per_label(task: Task) -> list[dict]:
     for queryset, kind in (
         (LabeledTrack.objects.filter(parent__isnull=True, **in_task), TRACK),
         (LabeledImage.objects.filter(**in_task), TAG),
+        (LabeledInterval.objects.filter(**in_task), INTERVAL),
     ):
         for row in queryset.values("label_id").annotate(count=Count("id")).order_by():
             by_label.setdefault(row["label_id"], Counter())[kind] += row["count"]

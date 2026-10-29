@@ -14,6 +14,7 @@ from cvat.apps.engine.models import (
     JobType,
     Label,
     LabeledImage,
+    LabeledInterval,
     LabeledShape,
     LabeledTrack,
     Segment,
@@ -60,11 +61,12 @@ class AnnotationStatsTest(APITestCase):
 
         shape(job, cat, ShapeType.POLYGON)
         shape(job, cat, ShapeType.POLYGON)
-        skeleton = shape(job, cat, ShapeType.RECTANGLE)
+        skeleton = shape(job, cat, ShapeType.SKELETON)
         shape(job, cat, ShapeType.POINTS, parent=skeleton)  # element of a skeleton, not counted
         shape(gt_job, cat, ShapeType.RECTANGLE)  # ground truth copy, not counted
         LabeledTrack.objects.create(job=job, label=dog, frame=0)
         LabeledImage.objects.create(job=job, label=dog, frame=0)
+        LabeledInterval.objects.create(job=job, label=dog, start=0, stop=5)
 
     def _get(self, user, task_id=None, **params):
         url = f"/api/annotation_stats/tasks/{task_id or self.task.id}"
@@ -75,20 +77,24 @@ class AnnotationStatsTest(APITestCase):
         response = self._get(self.owner)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["total"], 5)
+        self.assertEqual(response.data["total"], 6)
         self.assertEqual(
             {label["name"]: label["count"] for label in response.data["labels"]},
-            {"cat": 3, "dog": 2, "bird": 0},
+            {"cat": 3, "dog": 3, "bird": 0},
         )
         self.assertNotIn("by_kind", response.data["labels"][0])
 
-    def test_group_by_kind_splits_shapes_tracks_and_tags(self):
+    def test_group_by_kind_splits_shapes_tracks_tags_and_intervals(self):
         response = self._get(self.owner, group_by="kind")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
             {label["name"]: label["by_kind"] for label in response.data["labels"]},
-            {"cat": {"polygon": 2, "rectangle": 1}, "dog": {"track": 1, "tag": 1}, "bird": {}},
+            {
+                "cat": {"polygon": 2, "skeleton": 1},
+                "dog": {"track": 1, "tag": 1, "interval": 1},
+                "bird": {},
+            },
         )
 
     def test_unknown_group_by_is_rejected(self):
