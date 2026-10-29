@@ -26,9 +26,7 @@ def route_websockets(http_application):
         if scope["type"] != "websocket":
             await http_application(scope, receive, send)
         elif match := STATS_SOCKET_PATH.match(scope["path"]):
-            await _serve_stats_socket(
-                http_application, scope, receive, send, int(match["task_id"])
-            )
+            await _serve_stats_socket(http_application, scope, receive, send, int(match["task_id"]))
         else:
             await send({"type": "websocket.close"})
 
@@ -50,7 +48,9 @@ async def _fetch_stats(http_application, scope, task_id: int) -> tuple[int, byte
         "path": path,
         "raw_path": path.encode(),
         # the body is sent as a text frame, so it must not be gzipped by GZipMiddleware
-        "headers": [(name, value) for name, value in scope["headers"] if name != b"accept-encoding"],
+        "headers": [
+            (name, value) for name, value in scope["headers"] if name != b"accept-encoding"
+        ],
     }
     http_scope.pop("subprotocols", None)
 
