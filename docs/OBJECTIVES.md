@@ -92,3 +92,21 @@ The `job_id` index is used; most of the time is sorting the 41,866 rows before g
 the task's job ids first and filtering `job_id__in` measured 13.6–17.1 ms against 19.1–22.6 ms for
 the join (5 runs each, same results). I kept the single join query: 6 ms is under 10% of the
 request, and the target is met without it.
+
+**Re-run on the final code (commit `70aeef42d`), token auth: met.** Median **60.0 ms**, spread
+58.4–63.7 ms. Measured again because a review after the runs above added a fourth query (interval
+annotations, see the Plan), so the earlier numbers no longer came from the submitted code.
+
+```
+$ curl -s -o /dev/null -H 'Authorization: Token ***' -w '%{http_code} %{time_total}\n' http://localhost:8080/api/annotation_stats/tasks/1   # warm-up + 5 runs
+2026-10-29T15:10:54Z
+warm-up: 200 0.071761
+run 1: 200 0.058375
+run 2: 200 0.063659
+run 3: 200 0.062422
+run 4: 200 0.059868
+run 5: 200 0.060012
+```
+
+The extra query is on an empty interval table for this image task, so it adds no measurable time;
+the 5 ms difference to the earlier run is within the spread between runs.

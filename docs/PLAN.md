@@ -65,10 +65,20 @@ less useful on a dataset where every job has the same distribution.
   (models, permission classes, existing chart dependency) meant no false starts.
 - 19:40 — The Docker VM restarted once while the webpack dev server (2.4 GB) and Docker (7.5 GB)
   were both running, and Windows port forwarding to Traefik stopped until `docker restart traefik`.
-  No data lost. Lint runs with the dev server stopped from then on.
+  No data lost. ESLint also ran out of memory twice while both were running; it passed on a retry the first time
+  and with the dev server stopped the second time.
 - 19:45 — Added Django API tests (`cvat/apps/test/tests`), not in the original plan. Items 1–9 were
   done with most of the time left, and tests are cheaper evidence than more manual checks.
   Cypress stays skipped.
+- 20:00 — Reviewed the whole diff again before recording and found three problems, each fixed in
+  its own commit:
+  1. `LabeledInterval` (audio and time ranges) is a fourth `Annotation` model and was not counted.
+     COCO has none, so the 41,866 check could not show it. Now counted as kind "interval", with a test.
+  2. With the server stopped, Traefik answers `/api` with the UI's HTML, cvat-core fails on it,
+     and the error state printed the whole HTML page. Now 4xx shows the server's reason and
+     anything else a short "the server did not answer" message.
+  3. Retry did not visibly do anything until the response came back. It now shows the spinner.
+  MO-1 was measured again on the final code, since the first fix added a query.
 
 ## Decision record
 
@@ -91,7 +101,7 @@ laptop, and every reviewer pays it too). It also brings its own auth stack
   gives these tested; mine is tested by one end-to-end script, not by unit tests.
 - One Redis connection per open socket, where Channels shares one per process. Fine for a stats
   page; not for thousands of viewers.
-- Each burst of changes re-runs the full GET (OPA call + count query, ~65 ms) once per open socket
+- Each burst of changes re-runs the full GET (OPA call + count queries, ~60 ms) once per open socket
   instead of once per task.
 - A core file, `cvat/asgi.py`, changed (7 added lines) instead of the change staying inside my app.
 - A refused handshake is a bare 403, so the page cannot tell "no access" from "server down" and
