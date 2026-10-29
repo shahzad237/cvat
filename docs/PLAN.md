@@ -56,7 +56,13 @@ less useful on a dataset where every job has the same distribution.
 
 ## Changes to this plan
 
-(Filled in as they happen, with the reason.)
+- 19:00 — Item 7 is `group_by=kind`, not `shape_type`: tracks and tags have no shape type of their
+  own, so the split is shape type for shapes plus "track" and "tag".
+- 19:15 — MO-1 measurement method changed from Basic auth to token auth after the first run missed
+  the target. Basic auth hashes the password on every request (~300 ms, same on CVAT's own
+  endpoints); the page never uses it. Target unchanged, both runs kept in `OBJECTIVES.md`.
+- 19:15 — Items 1–5 took about 25 minutes, not 3 hours: the reading done before planning
+  (models, permission classes, existing chart dependency) meant no false starts.
 
 ## Decision record
 
