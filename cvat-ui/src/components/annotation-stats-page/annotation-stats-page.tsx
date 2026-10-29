@@ -15,11 +15,19 @@ import Result from 'antd/lib/result';
 import Empty from 'antd/lib/empty';
 import Button from 'antd/lib/button';
 import Switch from 'antd/lib/switch';
+import Badge from 'antd/lib/badge';
 
 import GoBackButton from 'components/common/go-back-button';
 import CVATLoadingSpinner from 'components/common/loading-spinner';
 import AnnotationStatsChart from './annotation-stats-chart';
 import { AnnotationStats, fetchAnnotationStats } from './annotation-stats-api';
+import { SocketStatus, useAnnotationStatsSocket } from './use-annotation-stats-socket';
+
+const SOCKET_BADGES: Record<SocketStatus, { status: 'success' | 'processing' | 'warning', text: string }> = {
+    connecting: { status: 'processing', text: 'Connecting' },
+    live: { status: 'success', text: 'Live' },
+    reconnecting: { status: 'warning', text: 'Reconnecting' },
+};
 
 function AnnotationStatsPage(): JSX.Element {
     const taskId = +useParams<{ tid: string }>().tid;
@@ -48,6 +56,14 @@ function AnnotationStatsPage(): JSX.Element {
     useEffect(() => {
         load();
     }, [load]);
+
+    const onSocketStats = useCallback((socketStats: AnnotationStats): void => {
+        // a pushed update is newer than any request still in flight
+        lastRequestId.current += 1;
+        setStats(socketStats);
+        setError(null);
+    }, []);
+    const socketStatus = useAnnotationStatsSocket(taskId, byKind, onSocketStats);
 
     let content: JSX.Element;
     if (error) {
@@ -88,6 +104,11 @@ function AnnotationStatsPage(): JSX.Element {
                             {`Annotations per class, task #${taskId}`}
                         </Title>
                         <div className='cvat-annotation-stats-controls'>
+                            <Badge
+                                className='cvat-annotation-stats-socket-status'
+                                status={SOCKET_BADGES[socketStatus].status}
+                                text={SOCKET_BADGES[socketStatus].text}
+                            />
                             <Switch
                                 checked={byKind}
                                 onChange={setByKind}
