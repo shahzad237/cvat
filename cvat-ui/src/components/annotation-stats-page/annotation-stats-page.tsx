@@ -17,6 +17,7 @@ import Button from 'antd/lib/button';
 import Switch from 'antd/lib/switch';
 import Badge from 'antd/lib/badge';
 
+import { ServerError } from 'cvat-core-wrapper';
 import GoBackButton from 'components/common/go-back-button';
 import CVATLoadingSpinner from 'components/common/loading-spinner';
 import AnnotationStatsChart from './annotation-stats-chart';
@@ -29,16 +30,28 @@ const SOCKET_BADGES: Record<SocketStatus, { status: 'success' | 'processing' | '
     reconnecting: { status: 'warning', text: 'Reconnecting' },
 };
 
+function describeError(error: unknown): string {
+    // a 4xx from the API carries a reason worth showing ("No Task matches the given query.");
+    // a 5xx, a proxy error page or a network failure does not
+    if (error instanceof ServerError && error.code >= 400 && error.code < 500) {
+        return error.message;
+    }
+    const status = error instanceof ServerError && error.code ? ` (HTTP ${error.code})` : '';
+    return `The server did not answer${status}. Check that CVAT is running, then retry.`;
+}
+
 function AnnotationStatsPage(): JSX.Element {
     const taskId = +useParams<{ tid: string }>().tid;
     const [byKind, setByKind] = useState(false);
     const [stats, setStats] = useState<AnnotationStats | null>(null);
-    const [error, setError] = useState<Error | null>(null);
+    const [error, setError] = useState<string | null>(null);
     const lastRequestId = useRef(0);
 
     const load = useCallback(async (): Promise<void> => {
         // only the newest response is shown, older ones may arrive later and are dropped
         const requestId = ++lastRequestId.current;
+        // clearing the error shows the spinner again, so a click on Retry is visible
+        setError(null);
         try {
             const response = await fetchAnnotationStats(taskId, byKind);
             if (requestId === lastRequestId.current) {
@@ -48,7 +61,7 @@ function AnnotationStatsPage(): JSX.Element {
         } catch (requestError: unknown) {
             if (requestId === lastRequestId.current) {
                 setStats(null);
-                setError(requestError instanceof Error ? requestError : new Error(String(requestError)));
+                setError(describeError(requestError));
             }
         }
     }, [taskId, byKind]);
@@ -72,7 +85,7 @@ function AnnotationStatsPage(): JSX.Element {
                 className='cvat-annotation-stats-error'
                 status='error'
                 title='Could not load the annotation counts'
-                subTitle={error.message}
+                subTitle={error}
                 extra={<Button type='primary' onClick={load}>Retry</Button>}
             />
         );
