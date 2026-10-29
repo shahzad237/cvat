@@ -4,7 +4,9 @@
 
 import './styles.scss';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, {
+    useCallback, useEffect, useRef, useState,
+} from 'react';
 import { useParams } from 'react-router';
 import { Row, Col } from 'antd/lib/grid';
 import Title from 'antd/lib/typography/Title';
@@ -12,6 +14,7 @@ import Text from 'antd/lib/typography/Text';
 import Result from 'antd/lib/result';
 import Empty from 'antd/lib/empty';
 import Button from 'antd/lib/button';
+import Switch from 'antd/lib/switch';
 
 import GoBackButton from 'components/common/go-back-button';
 import CVATLoadingSpinner from 'components/common/loading-spinner';
@@ -20,18 +23,27 @@ import { AnnotationStats, fetchAnnotationStats } from './annotation-stats-api';
 
 function AnnotationStatsPage(): JSX.Element {
     const taskId = +useParams<{ tid: string }>().tid;
+    const [byKind, setByKind] = useState(false);
     const [stats, setStats] = useState<AnnotationStats | null>(null);
     const [error, setError] = useState<Error | null>(null);
+    const lastRequestId = useRef(0);
 
     const load = useCallback(async (): Promise<void> => {
-        setError(null);
+        // only the newest response is shown, older ones may arrive later and are dropped
+        const requestId = ++lastRequestId.current;
         try {
-            setStats(await fetchAnnotationStats(taskId));
+            const response = await fetchAnnotationStats(taskId, byKind);
+            if (requestId === lastRequestId.current) {
+                setStats(response);
+                setError(null);
+            }
         } catch (requestError: unknown) {
-            setStats(null);
-            setError(requestError instanceof Error ? requestError : new Error(String(requestError)));
+            if (requestId === lastRequestId.current) {
+                setStats(null);
+                setError(requestError instanceof Error ? requestError : new Error(String(requestError)));
+            }
         }
-    }, [taskId]);
+    }, [taskId, byKind]);
 
     useEffect(() => {
         load();
@@ -58,7 +70,8 @@ function AnnotationStatsPage(): JSX.Element {
             />
         );
     } else {
-        content = <AnnotationStatsChart labels={stats.labels} />;
+        const statsByKind = stats.labels.some((label) => label.by_kind !== undefined);
+        content = <AnnotationStatsChart labels={stats.labels} byKind={statsByKind} />;
     }
 
     return (
@@ -74,7 +87,15 @@ function AnnotationStatsPage(): JSX.Element {
                         <Title level={4} className='cvat-text-color'>
                             {`Annotations per class, task #${taskId}`}
                         </Title>
-                        {stats && <Text type='secondary'>{`Total: ${stats.total}`}</Text>}
+                        <div className='cvat-annotation-stats-controls'>
+                            <Switch
+                                checked={byKind}
+                                onChange={setByKind}
+                                checkedChildren='Split by type'
+                                unCheckedChildren='Split by type'
+                            />
+                            {stats && <Text type='secondary'>{`Total: ${stats.total}`}</Text>}
+                        </div>
                     </div>
                     <div className='cvat-annotation-stats-content'>{content}</div>
                 </Col>

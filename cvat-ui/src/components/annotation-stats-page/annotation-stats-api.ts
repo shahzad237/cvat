@@ -11,6 +11,7 @@ export interface LabelCount {
     name: string;
     color: string;
     count: number;
+    by_kind?: Record<string, number>;
 }
 
 export interface AnnotationStats {
@@ -19,12 +20,12 @@ export interface AnnotationStats {
     labels: LabelCount[];
 }
 
-export async function fetchAnnotationStats(taskId: number): Promise<AnnotationStats> {
+export async function fetchAnnotationStats(taskId: number, byKind: boolean): Promise<AnnotationStats> {
     // core.server.request goes through cvat-core's Axios instance,
     // which already sends the user's credentials and the organization header
     const response = await core.server.request(
         `${core.config.backendAPI}/annotation_stats/tasks/${taskId}`,
-        { method: 'GET' },
+        { method: 'GET', params: byKind ? { group_by: 'kind' } : {} },
     ) as { data: AnnotationStats };
     return response.data;
 }

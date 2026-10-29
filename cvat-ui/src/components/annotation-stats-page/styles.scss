@@ -27,6 +27,12 @@
     }
 }
 
+.cvat-annotation-stats-controls {
+    display: flex;
+    align-items: center;
+    gap: $grid-unit-size * 2;
+}
+
 .cvat-annotation-stats-content {
     flex-grow: 1;
     overflow-y: auto;
