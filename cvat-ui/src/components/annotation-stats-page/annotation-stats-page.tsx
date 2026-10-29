@@ -8,6 +8,7 @@ import React, {
     useCallback, useEffect, useRef, useState,
 } from 'react';
 import { useParams } from 'react-router';
+import { Link } from 'react-router-dom';
 import { Row, Col } from 'antd/lib/grid';
 import Title from 'antd/lib/typography/Title';
 import Text from 'antd/lib/typography/Text';
@@ -16,11 +17,14 @@ import Empty from 'antd/lib/empty';
 import Button from 'antd/lib/button';
 import Switch from 'antd/lib/switch';
 import Badge from 'antd/lib/badge';
+import Select from 'antd/lib/select';
 
-import { ServerError } from 'cvat-core-wrapper';
+import { ServerError, Task } from 'cvat-core-wrapper';
 import GoBackButton from 'components/common/go-back-button';
 import CVATLoadingSpinner from 'components/common/loading-spinner';
-import AnnotationStatsChart from './annotation-stats-chart';
+import { fetchTask } from 'utils/fetch';
+import AnnotationStatsChart, { SortOrder } from './annotation-stats-chart';
+import AnnotationStatsSummary from './annotation-stats-summary';
 import { AnnotationStats, fetchAnnotationStats } from './annotation-stats-api';
 import { SocketStatus, useAnnotationStatsSocket } from './use-annotation-stats-socket';
 
@@ -29,6 +33,11 @@ const SOCKET_BADGES: Record<SocketStatus, { status: 'success' | 'processing' | '
     live: { status: 'success', text: 'Live' },
     reconnecting: { status: 'warning', text: 'Reconnecting' },
 };
+
+const SORT_OPTIONS: { value: SortOrder, label: string }[] = [
+    { value: 'count', label: 'Most annotations first' },
+    { value: 'name', label: 'Class name A–Z' },
+];
 
 function describeError(error: unknown): string {
     // a 4xx from the API carries a reason worth showing ("No Task matches the given query.");
@@ -42,10 +51,19 @@ function describeError(error: unknown): string {
 
 function AnnotationStatsPage(): JSX.Element {
     const taskId = +useParams<{ tid: string }>().tid;
+    const [task, setTask] = useState<Task | null>(null);
     const [byKind, setByKind] = useState(false);
+    const [sortOrder, setSortOrder] = useState<SortOrder>('count');
     const [stats, setStats] = useState<AnnotationStats | null>(null);
+    const [updatedAt, setUpdatedAt] = useState<Date>(new Date());
     const [error, setError] = useState<string | null>(null);
     const lastRequestId = useRef(0);
+
+    const showStats = useCallback((newStats: AnnotationStats): void => {
+        setStats(newStats);
+        setUpdatedAt(new Date());
+        setError(null);
+    }, []);
 
     const load = useCallback(async (): Promise<void> => {
         // only the newest response is shown, older ones may arrive later and are dropped
@@ -55,8 +73,7 @@ function AnnotationStatsPage(): JSX.Element {
         try {
             const response = await fetchAnnotationStats(taskId, byKind);
             if (requestId === lastRequestId.current) {
-                setStats(response);
-                setError(null);
+                showStats(response);
             }
         } catch (requestError: unknown) {
             if (requestId === lastRequestId.current) {
@@ -70,11 +87,15 @@ function AnnotationStatsPage(): JSX.Element {
         load();
     }, [load]);
 
+    useEffect(() => {
+        // only for the task name in the header; a missing task is reported by the counts request
+        fetchTask(taskId).then(setTask).catch(() => setTask(null));
+    }, [taskId]);
+
     const onSocketStats = useCallback((socketStats: AnnotationStats): void => {
         // a pushed update is newer than any request still in flight
         lastRequestId.current += 1;
-        setStats(socketStats);
-        setError(null);
+        showStats(socketStats);
     }, []);
     const socketStatus = useAnnotationStatsSocket(taskId, byKind, onSocketStats);
 
@@ -100,7 +121,31 @@ function AnnotationStatsPage(): JSX.Element {
         );
     } else {
         const statsByKind = stats.labels.some((label) => label.by_kind !== undefined);
-        content = <AnnotationStatsChart labels={stats.labels} byKind={statsByKind} />;
+        content = (
+            <>
+                <AnnotationStatsSummary stats={stats} updatedAt={updatedAt} />
+                <div className='cvat-annotation-stats-toolbar'>
+                    <Select
+                        className='cvat-annotation-stats-sort'
+                        value={sortOrder}
+                        onChange={setSortOrder}
+                        options={SORT_OPTIONS}
+                    />
+                    <Switch
+                        checked={byKind}
+                        onChange={setByKind}
+                        checkedChildren='Split by type'
+                        unCheckedChildren='Split by type'
+                    />
+                </div>
+                <AnnotationStatsChart
+                    labels={stats.labels}
+                    total={stats.total}
+                    byKind={statsByKind}
+                    sortOrder={sortOrder}
+                />
+            </>
+        );
     }
 
     return (
@@ -113,23 +158,18 @@ function AnnotationStatsPage(): JSX.Element {
             <Row justify='center' className='cvat-annotation-stats-inner-wrapper'>
                 <Col span={22} xl={18} xxl={14} className='cvat-annotation-stats-inner'>
                     <div className='cvat-annotation-stats-header'>
-                        <Title level={4} className='cvat-text-color'>
-                            {`Annotations per class, task #${taskId}`}
-                        </Title>
-                        <div className='cvat-annotation-stats-controls'>
-                            <Badge
-                                className='cvat-annotation-stats-socket-status'
-                                status={SOCKET_BADGES[socketStatus].status}
-                                text={SOCKET_BADGES[socketStatus].text}
-                            />
-                            <Switch
-                                checked={byKind}
-                                onChange={setByKind}
-                                checkedChildren='Split by type'
-                                unCheckedChildren='Split by type'
-                            />
-                            {stats && <Text type='secondary'>{`Total: ${stats.total}`}</Text>}
+                        <div>
+                            <Title level={4} className='cvat-text-color'>Annotation counts</Title>
+                            <Text type='secondary'>
+                                <Link to={`/tasks/${taskId}`}>{task ? task.name : `Task #${taskId}`}</Link>
+                                {task && ` · Task #${taskId}`}
+                            </Text>
                         </div>
+                        <Badge
+                            className='cvat-annotation-stats-socket-status'
+                            status={SOCKET_BADGES[socketStatus].status}
+                            text={SOCKET_BADGES[socketStatus].text}
+                        />
                     </div>
                     <div className='cvat-annotation-stats-content'>{content}</div>
                 </Col>

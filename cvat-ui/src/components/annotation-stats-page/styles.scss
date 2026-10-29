@@ -18,7 +18,7 @@
 
 .cvat-annotation-stats-header {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     margin: $grid-unit-size * 2 0;
 
@@ -27,10 +27,16 @@
     }
 }
 
-.cvat-annotation-stats-controls {
+.cvat-annotation-stats-toolbar {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: $grid-unit-size * 2;
+    margin: $grid-unit-size * 2 0;
+}
+
+.cvat-annotation-stats-sort {
+    min-width: $grid-unit-size * 26;
 }
 
 .cvat-annotation-stats-content {
