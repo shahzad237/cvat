@@ -63,7 +63,36 @@ less useful on a dataset where every job has the same distribution.
   endpoints); the page never uses it. Target unchanged, both runs kept in `OBJECTIVES.md`.
 - 19:15 — Items 1–5 took about 25 minutes, not 3 hours: the reading done before planning
   (models, permission classes, existing chart dependency) meant no false starts.
+- 19:40 — The Docker VM restarted once while the webpack dev server (2.4 GB) and Docker (7.5 GB)
+  were both running, and Windows port forwarding to Traefik stopped until `docker restart traefik`.
+  No data lost. Lint runs with the dev server stopped from then on.
+- 19:45 — Added Django API tests (`cvat/apps/test/tests`), not in the original plan. Items 1–9 were
+  done with most of the time left, and tests are cheaper evidence than more manual checks.
+  Cypress stays skipped.
 
 ## Decision record
 
-(Written when item 10 is reached.)
+**Took:** live updates through a ~120-line ASGI router in `cvat/apps/test/websocket.py`, wired in
+`cvat/asgi.py`. A `post_save` receiver on `Task` (every annotation write ends in `Task.touch()`)
+publishes to Redis after commit. The socket handshake is authorised by replaying it as
+`GET /api/annotation_stats/tasks/<id>` through Django, so login, the OPA rule and the counting
+are one code path for HTTP and WebSocket.
+
+**Rejected:** Django Channels (`AsyncJsonWebsocketConsumer` + `channels_redis` group layer), the
+usual answer for WebSockets in Django.
+
+**Why:** Channels is not installed and pip is removed from the server image. Adding it means a
+requirements change and a server image rebuild (ffmpeg compiles from source, 30+ min on this
+laptop, and every reviewer pays it too). It also brings its own auth stack
+(`AuthMiddlewareStack`, session only) that would have to be kept in step with DRF + OPA by hand.
+
+**What rejecting it cost:**
+- I wrote the connect / receive / disconnect loop and the Redis subscription myself. Channels
+  gives these tested; mine is tested by one end-to-end script, not by unit tests.
+- One Redis connection per open socket, where Channels shares one per process. Fine for a stats
+  page; not for thousands of viewers.
+- Each burst of changes re-runs the full GET (OPA call + count query, ~65 ms) once per open socket
+  instead of once per task.
+- A core file, `cvat/asgi.py`, changed (7 added lines) instead of the change staying inside my app.
+- A refused handshake is a bare 403, so the page cannot tell "no access" from "server down" and
+  keeps retrying with backoff up to 30 s.
